@@ -23,6 +23,7 @@ enum AppMetricaTarget: String {
     case keychain = "AppMetricaKeychain"
     case identifiers = "AppMetricaIdentifiers"
     case synchronization = "AppMetricaSynchronization"
+    case screenshot = "AppMetricaScreenshot"
 
     case protobuf = "AppMetricaProtobuf"
     case fmdb = "AppMetricaFMDB"
@@ -40,6 +41,7 @@ enum AppMetricaProduct: String, CaseIterable {
     case adSupport = "AppMetricaAdSupport"
     case webKit = "AppMetricaWebKit"
     case libraryAdapter = "AppMetricaLibraryAdapter"
+    case screenshot = "AppMetricaScreenshot"
 
     static var allProducts: [Product] { allCases.map { $0.product } }
 
@@ -50,6 +52,7 @@ enum AppMetricaProduct: String, CaseIterable {
         case .adSupport: return [.adSupport]
         case .webKit: return [.webKit]
         case .libraryAdapter: return [.libraryAdapter]
+        case .screenshot: return [.screenshot]
         }
     }
     
@@ -67,7 +70,7 @@ enum ExternalPackage: String, CaseIterable {
     var package: Package.Dependency {
         switch self {
         case .ksCrash:
-            return package(url: "https://github.com/kstenerud/KSCrash", "2.0.0-rc.1"..<"2.1.0")
+            return package(url: "https://github.com/kstenerud/KSCrash.git", exact: "2.0.0-rc.8")
         case .kiwi:
             return package(url: "https://github.com/appmetrica/Kiwi", exact: "3.0.1-spm")
         }
@@ -107,8 +110,8 @@ enum ExternalPackage: String, CaseIterable {
 let package = Package(
     name: "AppMetrica",
     platforms: [
-        .iOS(.v12),
-        .tvOS(.v12),
+        .iOS(.v13),
+        .tvOS(.v13),
     ],
     products: AppMetricaProduct.allProducts,
     dependencies: ExternalPackage.allDependencies,
@@ -297,6 +300,14 @@ let package = Package(
         //MARK: - AppMetricaLibraryAdapter
         .target(target: .libraryAdapter, dependencies: [.core, .coreExtension]),
         .testTarget(target: .libraryAdapter, dependencies: [.libraryAdapter]),
+        
+        //MARK: - AppMetricaScreenshot
+        .target(target: .screenshot, dependencies: [.core, .coreExtension]),
+        .testTarget(
+            target: .screenshot,
+            dependencies: [.screenshot, .core, .testUtils],
+            externalDependencies: [.kiwi]
+        ),
 
         //MARK: - AppMetrica FMDB
         .target(target: .fmdb),
@@ -386,8 +397,10 @@ extension AppMetricaTarget {
                 "./AdRevenue/Serialization",
                 "./AdRevenue/Validation",
                 "./AdServices",
+                "./AdSupport",
                 "./Attribution",
                 "./Configuration",
+                "./Configuration/AnonymousConfiguration",
                 "./Core",
                 "./Database",
                 "./Database/IntegrityManager",
@@ -409,12 +422,14 @@ extension AppMetricaTarget {
                 "./Generated",
                 "./Limiters",
                 "./Location",
+                "./Location/Factory",
                 "./Logging",
                 "./Model",
                 "./Model/Event",
                 "./Model/Event/Value",
                 "./Model/Reporter",
                 "./Model/Reporter/Serialization",
+                "./Model/Reporter/Serialization/Factory",
                 "./Model/Session",
                 "./Model/Truncation",
                 "./Network",
@@ -468,6 +483,11 @@ extension AppMetricaTarget {
                 "./Plugins",
                 "./Resources",
             ]
+        case .screenshot:
+            return [
+                "./Reporter",
+                "./Configuration",
+            ]
         case .adSupport, .coreExtension, .encodingUtils, .fmdb, .hostState, .log, .network, .platform,
                 .protobuf, .protobufUtils, .storageUtils, .webKit, .testUtils, .libraryAdapter, .keychain, .identifiers, .logSwift, .synchronization:
             return []
@@ -482,7 +502,7 @@ extension AppMetricaTarget {
                 "Resources",
                 "Utilities",
             ]
-        case .coreUtils, .encodingUtils, .network:
+        case .coreUtils, .encodingUtils, .network, .screenshot:
             return [
                 "Utilities",
             ]
@@ -490,7 +510,11 @@ extension AppMetricaTarget {
             return [
                 "Mocks",
             ]
-        case .crashes, .coreExtension, .adSupport, .webKit, .testUtils, .hostState, .storageUtils,
+        case .crashes:
+            return [
+                "Helpers",
+            ]
+        case .coreExtension, .adSupport, .webKit, .testUtils, .hostState, .storageUtils,
                 .protobuf, .fmdb, .libraryAdapter, .keychain, .identifiers, .logSwift, .synchronization:
             return []
         }

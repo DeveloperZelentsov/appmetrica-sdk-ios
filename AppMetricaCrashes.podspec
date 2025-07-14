@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name = "AppMetricaCrashes"
-  s.version = '5.9.0'
+  s.version = '5.12.0'
   s.summary = "Provides essential utilities for efficient crash and error handling and reporting"
 
   s.homepage = 'https://appmetrica.io'
@@ -8,8 +8,8 @@ Pod::Spec.new do |s|
   s.authors = { "AppMetrica" => "admin@appmetrica.io" }
   s.source = { :git => "https://github.com/appmetrica/appmetrica-sdk-ios.git", :tag=>s.version.to_s }
 
-  s.ios.deployment_target = '12.0'
-  s.tvos.deployment_target = '12.0'
+  s.ios.deployment_target = '13.0'
+  s.tvos.deployment_target = '13.0'
   
   s.swift_versions = '5.7'
 
@@ -17,17 +17,17 @@ Pod::Spec.new do |s|
 
   s.frameworks = 'Foundation'
 
-  s.dependency 'AppMetricaCore', '= 5.9.0'
-  s.dependency 'AppMetricaCoreExtension', '= 5.9.0'
-  s.dependency 'AppMetricaCoreUtils', '= 5.9.0'
-  s.dependency 'AppMetricaHostState', '= 5.9.0'
-  s.dependency 'AppMetricaProtobufUtils', '= 5.9.0'
-  s.dependency 'AppMetricaLog', '= 5.9.0'
-  s.dependency 'AppMetricaPlatform', '= 5.9.0'
-  s.dependency 'AppMetricaStorageUtils', '= 5.9.0'
-  s.dependency 'AppMetricaEncodingUtils', '= 5.9.0'
+  s.dependency 'AppMetricaCore', '= 5.12.0'
+  s.dependency 'AppMetricaCoreExtension', '= 5.12.0'
+  s.dependency 'AppMetricaCoreUtils', '= 5.12.0'
+  s.dependency 'AppMetricaHostState', '= 5.12.0'
+  s.dependency 'AppMetricaProtobufUtils', '= 5.12.0'
+  s.dependency 'AppMetricaLog', '= 5.12.0'
+  s.dependency 'AppMetricaPlatform', '= 5.12.0'
+  s.dependency 'AppMetricaStorageUtils', '= 5.12.0'
+  s.dependency 'AppMetricaEncodingUtils', '= 5.12.0'
 
-  s.dependency 'KSCrash/Recording', '>= 2.0.0-rc.1', '< 2.1.0'
+  s.dependency 'KSCrash/Recording', '>= 2.1.0', '< 2.2.0'
 
   s.header_dir = s.name
   s.source_files = "#{s.name}/Sources/**/*.{h,m,c}"

@@ -440,6 +440,20 @@
                ReferencedContainer = "container:">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "AppMetricaScreenshot"
+               BuildableName = "AppMetricaScreenshot"
+               BlueprintName = "AppMetricaScreenshot"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -603,9 +617,9 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "AppMetricaLockTests"
-               BuildableName = "AppMetricaLockTests"
-               BlueprintName = "AppMetricaLockTests"
+               BlueprintIdentifier = "AppMetricaSynchronizationTests"
+               BuildableName = "AppMetricaSynchronizationTests"
+               BlueprintName = "AppMetricaSynchronizationTests"
                ReferencedContainer = "container:">
             </BuildableReference>
          </TestableReference>
@@ -613,9 +627,9 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "AppMetricaSynchronizationTests"
-               BuildableName = "AppMetricaSynchronizationTests"
-               BlueprintName = "AppMetricaSynchronizationTests"
+               BlueprintIdentifier = "AppMetricaScreenshotTests"
+               BuildableName = "AppMetricaScreenshotTests"
+               BlueprintName = "AppMetricaScreenshotTests"
                ReferencedContainer = "container:">
             </BuildableReference>
          </TestableReference>

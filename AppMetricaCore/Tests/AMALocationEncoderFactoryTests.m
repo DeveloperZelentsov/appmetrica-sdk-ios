@@ -1,28 +1,33 @@
 
 #import <Kiwi/Kiwi.h>
 #import <AppMetricaEncodingUtils/AppMetricaEncodingUtils.h>
-#import "AMALocationEncoderFactory+Migration.h"
+#import "AMALocationEncoderFactory.h"
 #import <AppMetricaTestUtils/AppMetricaTestUtils.h>
 #import "AMAAESUtility+Migration.h"
 #import "AMAMigrationTo500Utils.h"
+#import "AMALocationEncryptionDefaults.h"
 
 SPEC_BEGIN(AMALocationEncoderFactoryTests)
 
 describe(@"AMALocationEncoderFactory", ^{
     
-    context(@"Encoder", ^{
-        it(@"Should return aes encoder with migration iv", ^{
-            [[AMAAESUtility should] receive:@selector(defaultIv)];
-            
-            id<AMADataEncoding> encoder = [AMALocationEncoderFactory encoder];
-        });
+    __auto_type *const encoderFactory = [[AMALocationEncoderFactory alloc] init];
+    AMAAESCrypter *__block crypterMock = nil;
+    
+    beforeEach(^{
+        crypterMock = [AMAAESCrypter stubbedNullMockForInit:@selector(initWithKey:iv:)];
     });
     
-    context(@"Migration encoder", ^{
-        it(@"Should return aes encoder with migration iv", ^{
-            [[AMAAESUtility should] receive:@selector(migrationIv:) withArguments:kAMAMigrationBundle];
+    context(@"Encoder", ^{
+        it(@"Should return encoder", ^{
+            NSData *iv = [NSData nullMock];
+            NSData *message = [NSData nullMock];
+            [AMAAESUtility stub:@selector(defaultIv) andReturn:iv];
+            [AMALocationEncryptionDefaults stub:@selector(message) andReturn:message];
             
-            id<AMADataEncoding> encoder = [AMALocationEncoderFactory migrationEncoder];
+            [[crypterMock should] receive:@selector(initWithKey:iv:) withArguments:message, iv];
+
+            id<AMADataEncoding> encoder = [encoderFactory encoder];
         });
     });
 });

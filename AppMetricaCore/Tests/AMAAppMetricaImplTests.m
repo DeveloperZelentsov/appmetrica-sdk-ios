@@ -56,6 +56,7 @@
 #import "AMAMetricaPersistentConfiguration.h"
 #import <AppMetricaTestUtils/AppMetricaTestUtils.h>
 #import "AMAAppMetricaConfiguration+JSONSerializable.h"
+#import "AMAAnonymousActivationPolicy.h"
 
 static NSString *const kAMAEnvironmentTestKey = @"TestEnvironmentKey";
 static NSString *const kAMAEnvironmentTestValue = @"TestEnvironmentValue";
@@ -487,7 +488,7 @@ describe(@"AMAAppMetricaImpl", ^{
             [appMetricaImpl activateWithConfiguration:configuration];
             AMAAdRevenueInfo *adRevenueInfo = [[AMAAdRevenueInfo alloc] initWithAdRevenue:[NSDecimalNumber one]
                                                                                  currency:@"USD"];
-            [appMetricaImpl reportAdRevenue:adRevenueInfo onFailure:nil];
+            [appMetricaImpl reportAdRevenue:adRevenueInfo isAutocollected:NO onFailure:nil];
             
             AMAEvent *event = [eventStorage amatest_savedEventWithType:AMAEventTypeAdRevenue];
             [[event shouldNot] beNil];
@@ -497,7 +498,7 @@ describe(@"AMAAppMetricaImpl", ^{
             AMAAdRevenueInfo *adRevenueInfo = [[AMAAdRevenueInfo alloc] initWithAdRevenue:[NSDecimalNumber one]
                                                                               currency:@"USD"];
 
-            [appMetricaImpl reportAdRevenue:adRevenueInfo onFailure:nil];
+            [appMetricaImpl reportAdRevenue:adRevenueInfo isAutocollected:NO onFailure:nil];
             
             AMAEvent *event = [anomymousEventStorage amatest_savedEventWithType:AMAEventTypeAdRevenue];
             [[event shouldNot] beNil];
@@ -1222,6 +1223,17 @@ describe(@"AMAAppMetricaImpl", ^{
                 [appMetricaImpl activateAnonymously];
             });
         });
+        
+        context(@"System event", ^{
+            NSString *const eventName = @"event name";
+            it(@"Should report system event", ^{
+                [appMetricaImpl activateWithConfiguration:configuration];
+                [[appMetricaImpl.mainReporter should] receive:@selector(reportSystemEvent:onFailure:)
+                                                withArguments:eventName, nil];
+                
+                [appMetricaImpl reportSystemEvent:eventName onFailure:nil];
+            });
+        });
     });
     context(@"Session extras", ^{
         NSString *const key = @"key";
@@ -1314,6 +1326,19 @@ describe(@"AMAAppMetricaImpl", ^{
                 
                 [appMetricaImpl scheduleAnonymousActivationIfNeeded];
             });
+            it(@"Schedules anonymous activation upon reporter creation", ^{
+                [[appMetricaImpl shouldNot] receive:@selector(activateAnonymously)];
+                [[appMetricaImpl shouldEventuallyBeforeTimingOutAfter(10.2)] receive:@selector(activateAnonymously)];
+                
+                [appMetricaImpl manualReporterForConfiguration:[[AMAReporterConfiguration alloc] initWithAPIKey:apiKey]];
+            });
+            it(@"Should not schedule reporter anonymous activation when disabled", ^{
+                [[AMAAnonymousActivationPolicy sharedInstance] stub:@selector(isAnonymousActivationAllowedForReporter)
+                                                          andReturn:theValue(NO)];
+                [[appMetricaImpl shouldNotEventually] receive:@selector(activateAnonymously)];
+                
+                [appMetricaImpl manualReporterForConfiguration:[[AMAReporterConfiguration alloc] initWithAPIKey:apiKey]];
+            });
         });
         context(@"Activation", ^{
             it(@"Should import anonymous configuration", ^{
@@ -1399,6 +1424,23 @@ describe(@"AMAAppMetricaImpl", ^{
                                               completionQueue:queue
                                               completionBlock:identifiersBlock
                                                 notifyOnError:NO];
+        });
+    });
+    
+    context(@"LibraryAdapter", ^{
+        NSString *const eventName = @"test_event_name";
+        NSDictionary *const params = @{
+            @"key": @"value"
+        };
+        
+        it(@"reportLibraryAdapterAdRevenueRelatedEvent",^{
+            [appMetricaImpl activateWithConfiguration:configuration];
+            [[appMetricaImpl.mainReporter should] receive:@selector(reportLibraryAdapterAdRevenueRelatedEvent:parameters:onFailure:)
+                                            withArguments:eventName, params, kw_any()];
+
+            [appMetricaImpl reportLibraryAdapterAdRevenueRelatedEvent:eventName
+                                                           parameters:params
+                                                            onFailure:nil];
         });
     });
     

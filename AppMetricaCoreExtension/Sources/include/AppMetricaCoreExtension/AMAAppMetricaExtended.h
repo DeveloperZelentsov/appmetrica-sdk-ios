@@ -22,8 +22,19 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)addEventPollingDelegate:(Class<AMAEventPollingDelegate>)delegate;
 
 // Registration Methods
-+ (void)registerAdProvider:(id<AMAAdProviding>)provider;
 + (void)registerExternalService:(AMAServiceConfiguration *)configuration;
+
+// Ad related methods
++ (void)registerAdProvider:(id<AMAAdProviding>)provider;
++ (void)setAdProviderEnabled:(BOOL)newValue;
+
+// AdRevenue methods
++ (void)registerAdRevenueNativeSource:(NSString *)source;
++ (void)reportLibraryAdapterAdRevenueRelatedEvent:(NSString *)name
+                                       parameters:(nullable NSDictionary *)params
+                                        onFailure:(nullable void (^)(NSError *error))onFailure
+NS_SWIFT_NAME(reportLibraryAdapterAdRevenueRelatedEvent(name:parameters:onFailure:));
+
 
 // State Checks
 + (BOOL)isAPIKeyValid:(NSString *)apiKey;
@@ -39,6 +50,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Anonymous activation
 + (void)activate;
++ (void)activateWithAdIdentifierTrackingEnabled:(BOOL)adIdentifierTrackingEnabled NS_SWIFT_NAME(activate(adIdentifierTrackingEnabled:));
 
 // Reporting
 + (nullable id<AMAAppMetricaExtendedReporting>)extendedReporterForApiKey:(NSString *)apiKey
@@ -107,6 +119,29 @@ NS_SWIFT_NAME(extendedReporter(for:));
                  appEnvironment:(nullable NSDictionary *)appEnvironment
                          extras:(nullable NSDictionary<NSString *, NSData *> *)extras
                       onFailure:(nullable void (^)(NSError *error))onFailure;
+
+/** Reports an SDK system event.
+
+ @param name Short name or description of the event.
+ @param onFailure Block to be executed if an error occurs while reporting, the error is passed as block argument.
+ */
++ (void)reportSystemEvent:(NSString *)name
+                onFailure:(nullable void (^)(NSError *error))onFailure
+NS_SWIFT_NAME(reportSystemEvent(name:onFailure:));
+
+/**
+ * Sends information about ad revenue.
+ * @note See `AMAAdRevenueInfo` for more info.
+ *
+ * @param adRevenue Object containing the information about ad revenue.
+ * @param onFailure Block to be executed if an error occurs while sending ad revenue,
+ *                  the error is passed as block argument.
+ */
++ (void)reportAdRevenue:(AMAAdRevenueInfo *)adRevenue
+        isAutocollected:(BOOL)isAutocollected
+              onFailure:(nullable void (^)(NSError *error))onFailure
+NS_SWIFT_NAME(reportAdRevenue(_:isAutocollected:onFailure:));
+
 
 @end
 

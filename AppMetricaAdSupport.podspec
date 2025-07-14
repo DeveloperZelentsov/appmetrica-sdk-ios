@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name = "AppMetricaAdSupport"
-  s.version = '5.9.0'
+  s.version = '5.12.0'
   s.summary = "Offers seamless access to advertising identifiers, leveraging AdSupport and AppTrackingTransparency for enhanced ad tracking and analytics."
 
   s.homepage = 'https://appmetrica.io'
@@ -8,8 +8,8 @@ Pod::Spec.new do |s|
   s.authors = { "AppMetrica" => "admin@appmetrica.io" }
   s.source = { :git => "https://github.com/appmetrica/appmetrica-sdk-ios.git", :tag=>s.version.to_s }
   
-  s.ios.deployment_target = '12.0'
-  s.tvos.deployment_target = '12.0'
+  s.ios.deployment_target = '13.0'
+  s.tvos.deployment_target = '13.0'
   
   s.swift_versions = '5.7'
   
@@ -17,8 +17,8 @@ Pod::Spec.new do |s|
 
   s.frameworks = 'Foundation', 'AdSupport', 'AppTrackingTransparency'
 
-  s.dependency 'AppMetricaCore', '= 5.9.0'
-  s.dependency 'AppMetricaCoreExtension', '= 5.9.0'
+  s.dependency 'AppMetricaCore', '= 5.12.0'
+  s.dependency 'AppMetricaCoreExtension', '= 5.12.0'
   
   s.header_dir = s.name
   s.source_files = "#{s.name}/Sources/**/*.{h,m}"

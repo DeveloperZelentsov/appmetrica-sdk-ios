@@ -1,16 +1,19 @@
 
 #import <Kiwi/Kiwi.h>
 #import <AppMetricaEncodingUtils/AppMetricaEncodingUtils.h>
-#import "AMAReporterDatabaseEncodersFactory+Migration.h"
+#import "AMAReporterDatabaseEncodersFactory.h"
 #import <AppMetricaTestUtils/AppMetricaTestUtils.h>
 #import "AMAAESUtility+Migration.h"
 #import "AMAMigrationTo500Utils.h"
+#import "AMAReporterDatabaseEncryptionDefaults.h"
 
 SPEC_BEGIN(AMAReporterDatabaseEncodersFactoryTests)
 
 describe(@"AMAReporterDatabaseEncodersFactory", ^{
 
     NSData *const defaultIV = [@"DEFAULT_IV" dataUsingEncoding:NSUTF8StringEncoding];
+    
+    NSObject<AMAReporterDatabaseEncoderProviding> *__block encoderFactory = nil;
 
     AMACompositeDataEncoder *__block compositeDataEncoder = nil;
     AMAGZipDataEncoder *__block gzipDataEncoder = nil;
@@ -22,36 +25,14 @@ describe(@"AMAReporterDatabaseEncodersFactory", ^{
         aesCrypter = [AMAAESCrypter stubbedNullMockForInit:@selector(initWithKey:iv:)];
 
         [AMAAESUtility stub:@selector(defaultIv) andReturn:defaultIV];
-    });
-
-    context(@"Encryption type", ^{
-        it(@"Should return valid events encryption type", ^{
-            [[theValue([AMAReporterDatabaseEncodersFactory eventDataEncryptionType]) should] equal:theValue(AMAReporterDatabaseEncryptionTypeGZipAES)];
-        });
         
-        it(@"Should return valid sessions encryption type", ^{
-            [[theValue([AMAReporterDatabaseEncodersFactory sessionDataEncryptionType]) should] equal:theValue(AMAReporterDatabaseEncryptionTypeAES)];
-        });
-    });
-    
-    context(@"Migration encoder", ^{
-        it(@"Should return aes encoder with migration iv", ^{
-            [[AMAAESUtility should] receive:@selector(migrationIv:) withArguments:kAMAMigrationBundle];
-            
-            id<AMADataEncoding> encoder = [AMAReporterDatabaseEncodersFactory migrationEncoderForEncryptionType:AMAReporterDatabaseEncryptionTypeAES];
-        });
-        
-        it(@"Should return gzip aes encoder with migration iv", ^{
-            [[AMAAESUtility should] receive:@selector(migrationIv:) withArguments:kAMAMigrationBundle];
-            
-            id<AMADataEncoding> encoder = [AMAReporterDatabaseEncodersFactory migrationEncoderForEncryptionType:AMAReporterDatabaseEncryptionTypeGZipAES];
-        });
+        encoderFactory = [[AMAReporterDatabaseEncodersFactory alloc] init];
     });
     
     context(@"AES", ^{
         NSObject<AMADataEncoding> *(^encoder)(void) = ^{
             return (NSObject<AMADataEncoding> *)
-            [AMAReporterDatabaseEncodersFactory encoderForEncryptionType:AMAReporterDatabaseEncryptionTypeAES];
+            [encoderFactory encoderForEncryptionType:AMAReporterDatabaseEncryptionTypeAES];
         };
         it(@"Should create valid AES encoder", ^{
             const unsigned char data[] = {
@@ -69,7 +50,7 @@ describe(@"AMAReporterDatabaseEncodersFactory", ^{
     context(@"GZip+AES", ^{
         NSObject<AMADataEncoding> *(^encoder)(void) = ^{
             return (NSObject<AMADataEncoding> *)
-                [AMAReporterDatabaseEncodersFactory encoderForEncryptionType:AMAReporterDatabaseEncryptionTypeGZipAES];
+                [encoderFactory encoderForEncryptionType:AMAReporterDatabaseEncryptionTypeGZipAES];
         };
         it(@"Should create valid AES encoder", ^{
             const unsigned char data[] = {

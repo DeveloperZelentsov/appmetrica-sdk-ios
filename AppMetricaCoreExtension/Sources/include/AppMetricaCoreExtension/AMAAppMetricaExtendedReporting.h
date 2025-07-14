@@ -76,6 +76,33 @@ NS_SWIFT_NAME(AppMetricaExtendedReporting)
                          extras:(nullable NSDictionary<NSString *, NSData *> *)extras
                       onFailure:(nullable void (^)(NSError *error))onFailure;
 
+/** Reports an SDK system event.
+
+ @param name Short name or description of the event.
+ @param onFailure Block to be executed if an error occurs while reporting, the error is passed as block argument.
+ */
+- (void)reportSystemEvent:(NSString *)name
+                onFailure:(nullable void (^)(NSError *error))onFailure
+NS_SWIFT_NAME(reportSystemEvent(name:onFailure:));
+
+/**
+ * Sends information about ad revenue.
+ * @note See `AMAAdRevenueInfo` for more info.
+ *
+ * @param adRevenue Object containing the information about ad revenue.
+ * @param onFailure Block to be executed if an error occurs while sending ad revenue,
+ *                  the error is passed as block argument.
+ */
+- (void)reportAdRevenue:(AMAAdRevenueInfo *)adRevenue
+        isAutocollected:(BOOL)isAutocollected
+              onFailure:(nullable void (^)(NSError *error))onFailure
+NS_SWIFT_NAME(reportAdRevenue(_:isAutocollected:onFailure:));
+
+- (void)reportLibraryAdapterAdRevenueRelatedEvent:(NSString *)name
+                                       parameters:(nullable NSDictionary *)params
+                                        onFailure:(nullable void (^)(NSError *error))onFailure
+NS_SWIFT_NAME(reportLibraryAdapterAdRevenueRelatedEvent(name:parameters:onFailure:));
+
 @end
 
 NS_ASSUME_NONNULL_END

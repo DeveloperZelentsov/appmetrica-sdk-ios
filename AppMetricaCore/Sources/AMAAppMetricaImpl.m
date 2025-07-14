@@ -56,6 +56,10 @@
 #import "AMAExternalAttributionController.h"
 #import "AMAAppMetricaConfigurationManager.h"
 #import "AMAFirstActivationDetector.h"
+#import "AMAAnonymousActivationPolicy.h"
+
+static NSTimeInterval const kAMAAnonymousActivationDelay = 0.1;
+static NSTimeInterval const kAMAReporterAnonymousActivationDelay = 10.0;
 
 @interface AMAAppMetricaImpl () <AMADispatcherDelegate,
                                  AMADispatchStrategyDelegate,
@@ -183,19 +187,31 @@
 {
     if ([self.firstActivationDetector isFirstLibraryReporterActivation] == NO &&
         [self.firstActivationDetector isFirstMainReporterActivation] == YES) {
-        AMADelayedExecutor *delayedExecutor = [[AMADelayedExecutor alloc] init];
-        
-        __weak typeof(self) weakSelf = self;
-        [delayedExecutor executeAfterDelay:0.1 block:^{
-            __strong typeof(self) strongSelf = weakSelf;
-            if (strongSelf.apiKey == nil) {
-                [strongSelf activateAnonymously];
-            }
-        }];
+        [self scheduleAnonymousActivationWithDelay:kAMAAnonymousActivationDelay];
     }
     else {
         [self activateAnonymously];
     }
+}
+
+- (void)scheduleReporterAnonymousActivationIfNeeded
+{
+    if ([AMAAnonymousActivationPolicy sharedInstance].isAnonymousActivationAllowedForReporter == YES) {
+        [self scheduleAnonymousActivationWithDelay:kAMAReporterAnonymousActivationDelay];
+    }
+}
+
+- (void)scheduleAnonymousActivationWithDelay:(NSTimeInterval)delay
+{
+    AMADelayedExecutor *delayedExecutor = [[AMADelayedExecutor alloc] init];
+
+    __weak typeof(self) weakSelf = self;
+    [delayedExecutor executeAfterDelay:delay block:^{
+        __strong typeof(self) strongSelf = weakSelf;
+        if (strongSelf.apiKey == nil) {
+            [strongSelf activateAnonymously];
+        }
+    }];
 }
 
 - (void)activateAnonymously
@@ -264,6 +280,17 @@
     [self execute:^{
         [self reportEventWithBlock:^{
             [self.mainReporter reportEvent:eventName parameters:params onFailure:onFailure];
+        } onFailure:onFailure];
+    }];
+}
+
+- (void)reportLibraryAdapterAdRevenueRelatedEvent:(NSString *)eventName
+                                       parameters:(NSDictionary *)params
+                                        onFailure:(void (^)(NSError *error))onFailure
+{
+    [self execute:^{
+        [self reportEventWithBlock:^{
+            [self.mainReporter reportLibraryAdapterAdRevenueRelatedEvent:eventName parameters:params onFailure:onFailure];
         } onFailure:onFailure];
     }];
 }
@@ -341,6 +368,15 @@
     }];
 }
 
+- (void)reportSystemEvent:(NSString *)name onFailure:(void (^)(NSError *))onFailure
+{
+    [self execute:^{
+        [self reportEventWithBlock:^{
+            [self.mainReporter reportSystemEvent:name onFailure:onFailure];
+        } onFailure:onFailure];
+    }];
+}
+
 - (void)reportEventWithBlock:(dispatch_block_t)reportEvent
                    onFailure:(nullable void (^)(NSError *error))onFailure
 {
@@ -390,11 +426,13 @@
     }];
 }
 
-- (void)reportAdRevenue:(AMAAdRevenueInfo *)adRevenueInfo onFailure:(void (^)(NSError *error))onFailure
+- (void)reportAdRevenue:(AMAAdRevenueInfo *)adRevenueInfo
+        isAutocollected:(BOOL)isAutocollected
+              onFailure:(void (^)(NSError *error))onFailure
 {
     [self execute:^{
         [self reportEventWithBlock:^{
-            [self.mainReporter reportAdRevenue:adRevenueInfo onFailure:onFailure];
+            [self.mainReporter reportAdRevenue:adRevenueInfo isAutocollected:isAutocollected onFailure:onFailure];
         } onFailure:onFailure];
     }];
 }
@@ -504,6 +542,7 @@
         if (onSetupComplete != nil) {
             onSetupComplete();
         }
+        [weakSelf scheduleReporterAnonymousActivationIfNeeded];
     }];
     
     [reporter reportFirstEventIfNeeded];
