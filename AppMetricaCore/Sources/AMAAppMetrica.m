@@ -28,6 +28,8 @@
 #import "AMAStartupParametersConfiguration.h"
 #import "AMAUserProfile.h"
 #import "AMAAppMetricaConfigurationManager.h"
+#import "AMAAdResolver.h"
+#import "AMAAdRevenueSourceContainer.h"
 @import AppMetricaIdentifiers;
 
 NSString *const kAMAUUIDKey = @"appmetrica_uuid";
@@ -46,6 +48,7 @@ static NSMutableSet<Class<AMAEventFlushableDelegate>> *eventFlushableDelegates =
 static NSMutableSet<Class<AMAEventPollingDelegate>> *eventPollingDelegates = nil;
 
 static id<AMAAdProviding> adProvider = nil;
+static AMAAdResolver *adResolver = nil;
 static NSMutableSet<id<AMAExtendedStartupObserving>> *startupObservers = nil;
 static NSMutableSet<id<AMAReporterStorageControlling>> *reporterStorageControllers = nil;
 
@@ -160,11 +163,31 @@ static NSMutableSet<id<AMAReporterStorageControlling>> *reporterStorageControlle
     }
 }
 
++ (AMAAdResolver *)createAdResolverIfNeeded
+{
+    @synchronized (self) {
+        if (adResolver == nil) {
+            adResolver = [[AMAAdResolver alloc] initWithDestination: [AMAAdProvider sharedInstance]];
+        }
+        return adResolver;
+    }
+}
+
 + (void)registerAdProvider:(id<AMAAdProviding>)provider
 {
     @synchronized(self) {
         if ([self isActivated] == NO) {
             adProvider = provider;
+        }
+    }
+}
+
++ (void)setAdProviderEnabled:(BOOL)newValue
+{
+    @synchronized (self) {
+        if ([self isActivated] == NO) {
+            AMAAdResolver *resolver = [self createAdResolverIfNeeded];
+            [resolver setEnabledAdProvider:newValue];
         }
     }
 }
@@ -178,11 +201,11 @@ static NSMutableSet<id<AMAReporterStorageControlling>> *reporterStorageControlle
         if (startupObservers != nil) {
             [[self sharedImpl] setExtendedStartupObservers:startupObservers];
         }
+        if (adProvider != nil) {
+            [self createAdResolverIfNeeded].adProvider = adProvider;
+        }
         if (reporterStorageControllers != nil) {
             [[self sharedImpl] setExtendedReporterStorageControllers:reporterStorageControllers];
-        }
-        if (adProvider != nil) {
-            [[AMAAdProvider sharedInstance] setupAdProvider:adProvider];
         }
         if (eventPollingDelegates != nil) {
             [[self sharedImpl] setEventPollingDelegates:eventPollingDelegates];
@@ -311,6 +334,13 @@ static NSMutableSet<id<AMAReporterStorageControlling>> *reporterStorageControlle
     }
 }
 
++ (void)reportSystemEvent:(NSString *)name onFailure:(void (^)(NSError *))onFailure
+{
+    if ([self isAppMetricaStartedWithLogging:onFailure]) {
+        [[self sharedImpl] reportSystemEvent:name onFailure:onFailure];
+    }
+}
+
 #pragma mark - Public API -
 
 + (void)activateWithConfiguration:(AMAAppMetricaConfiguration *)configuration
@@ -343,11 +373,18 @@ static NSMutableSet<id<AMAReporterStorageControlling>> *reporterStorageControlle
 
 + (void)activate
 {
+    [self activateWithAdIdentifierTrackingEnabled:YES];
+}
+
++ (void)activateWithAdIdentifierTrackingEnabled:(BOOL)adIdentifierTrackingEnabled
+{
     @synchronized (self) {
         if ([self isActivated]) {
             [AMAErrorLogger logMetricaAlreadyStartedError];
             return;
         }
+        
+        [[self createAdResolverIfNeeded] setEnabledForAnonymousActivation:adIdentifierTrackingEnabled];
         
         [[self class] setupExternalServices];
         
@@ -372,6 +409,15 @@ static NSMutableSet<id<AMAReporterStorageControlling>> *reporterStorageControlle
 {
     if ([self isAppMetricaStartedWithLogging:onFailure]) {
         [[self sharedImpl] reportEvent:[name copy] parameters:[params copy] onFailure:onFailure];
+    }
+}
+
++ (void)reportLibraryAdapterAdRevenueRelatedEvent:(NSString *)name
+                                       parameters:(NSDictionary *)params
+                                        onFailure:(void (^)(NSError *error))onFailure
+{
+    if ([self isAppMetricaStartedWithLogging:onFailure]) {
+        [[self sharedImpl] reportLibraryAdapterAdRevenueRelatedEvent:[name copy] parameters:[params copy] onFailure:onFailure];
     }
 }
 
@@ -407,10 +453,18 @@ static NSMutableSet<id<AMAReporterStorageControlling>> *reporterStorageControlle
 
 + (void)reportAdRevenue:(AMAAdRevenueInfo *)adRevenue onFailure:(void (^)(NSError *error))onFailure
 {
+    [self reportAdRevenue:adRevenue isAutocollected:NO onFailure:onFailure];
+}
+
++ (void)reportAdRevenue:(AMAAdRevenueInfo *)adRevenue
+        isAutocollected:(BOOL)isAutocollected
+              onFailure:(nullable void (^)(NSError *error))onFailure
+{
     if ([self isAppMetricaStartedWithLogging:onFailure]) {
-        [[self sharedImpl] reportAdRevenue:adRevenue onFailure:onFailure];
+        [[self sharedImpl] reportAdRevenue:adRevenue isAutocollected:isAutocollected onFailure:onFailure];
     }
 }
+
 
 #if !TARGET_OS_TV
 + (void)setupWebViewReporting:(id<AMAJSControlling>)controller
@@ -771,6 +825,11 @@ static NSMutableSet<id<AMAReporterStorageControlling>> *reporterStorageControlle
 + (NSUInteger)backgroundSessionTimeout
 {
     return [AMAMetricaConfiguration sharedInstance].inMemory.backgroundSessionTimeout;
+}
+
++ (void)registerAdRevenueNativeSource:(NSString *)source
+{
+    [[AMAAdRevenueSourceContainer sharedInstance] addNativeSupportedSource:source];
 }
 
 @end

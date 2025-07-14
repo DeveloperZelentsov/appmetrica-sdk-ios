@@ -11,12 +11,16 @@
 #import "AMAFileEventValue.h"
 #import "EventData.pb-c.h"
 #import "AMAReporterDatabaseEncodersFactory.h"
+#import "AMAReporterDatabaseMigrationTo500EncodersFactory.h"
+#import "AMAReporterDatabaseMigrationTo5100EncodersFactory.h"
 
 SPEC_BEGIN(AMAEventSerializerTests)
 
 describe(@"AMAEventSerializer", ^{
-
     double const EPSILON = 0.0001;
+    __auto_type *const encoderFactory = [[AMAReporterDatabaseEncodersFactory alloc] init];
+    __auto_type *const encoderTo500Factory = [[AMAReporterDatabaseMigrationTo500EncodersFactory alloc] init];
+    __auto_type *const encoderTo5100Factory = [[AMAReporterDatabaseMigrationTo5100EncodersFactory alloc] init];
     CLLocation *const location = [[CLLocation alloc] initWithCoordinate:CLLocationCoordinate2DMake(53.891059, 27.526119)
                                                                altitude:295.0
                                                      horizontalAccuracy:10.0
@@ -31,8 +35,10 @@ describe(@"AMAEventSerializer", ^{
 
     beforeEach(^{
         event = [[AMAEvent alloc] init];
-        encoder =
-            [AMAReporterDatabaseEncodersFactory encoderForEncryptionType:AMAReporterDatabaseEncryptionTypeGZipAES];
+        [AMAReporterDatabaseEncodersFactory stubInstance:encoderFactory forInit:@selector(init)];
+        [AMAReporterDatabaseMigrationTo500EncodersFactory stubInstance:encoderTo500Factory forInit:@selector(init)];
+        [AMAReporterDatabaseMigrationTo5100EncodersFactory stubInstance:encoderTo5100Factory forInit:@selector(init)];
+        encoder = [encoderFactory encoderForEncryptionType:AMAReporterDatabaseEncryptionTypeGZipAES];
         serializer = [[AMAEventSerializer alloc] init];
     });
 
@@ -244,6 +250,11 @@ describe(@"AMAEventSerializer", ^{
                     event.source = AMAEventSourceJs;
                     fillEventData();
                     [[theValue(eventData->source) should] equal:theValue(AMA__EVENT_DATA__EVENT_SOURCE__JS)];
+                });
+                it(@"Should have SDK source", ^{
+                    event.source = AMAEventSourceSDKSystem;
+                    fillEventData();
+                    [[theValue(eventData->source) should] equal:theValue(AMA__EVENT_DATA__EVENT_SOURCE__SDK_SYSTEM)];
                 });
             });
             context(@"Attribution id changed", ^{
@@ -499,18 +510,28 @@ describe(@"AMAEventSerializer", ^{
         });
 
         it(@"Should create different encoder", ^{
-            [[AMAReporterDatabaseEncodersFactory should] receive:@selector(encoderForEncryptionType:)
-                                                   withArguments:theValue(AMAReporterDatabaseEncryptionTypeAES)];
+            [[encoderFactory should] receive:@selector(encoderForEncryptionType:)
+                               withArguments:theValue(AMAReporterDatabaseEncryptionTypeAES)];
             prepareDictionary();
             eventDictionary[kAMACommonTableFieldDataEncryptionType] = @(AMAReporterDatabaseEncryptionTypeAES);
             [serializer eventForDictionary:eventDictionary error:nil];
         });
         
-        it(@"Should create migration encoder", ^{
-            AMAEventSerializer *__block migrationSerialzer = [[AMAEventSerializer alloc] migrationInit];
+        it(@"Should create migration to 5.0.0 encoder", ^{
+            AMAEventSerializer *__block migrationSerialzer = [[AMAEventSerializer alloc] migrationTo500Init];
             
-            [[AMAReporterDatabaseEncodersFactory should] receive:@selector(migrationEncoderForEncryptionType:)
-                                                   withArguments:theValue(AMAReporterDatabaseEncryptionTypeAES)];
+            [[encoderTo500Factory should] receive:@selector(encoderForEncryptionType:)
+                                    withArguments:theValue(AMAReporterDatabaseEncryptionTypeAES)];
+            prepareDictionary();
+            eventDictionary[kAMACommonTableFieldDataEncryptionType] = @(AMAReporterDatabaseEncryptionTypeAES);
+            [migrationSerialzer eventForDictionary:eventDictionary error:nil];
+        });
+        
+        it(@"Should create migration to 5.10.0 encoder", ^{
+            AMAEventSerializer *__block migrationSerialzer = [[AMAEventSerializer alloc] migrationTo5100Init];
+            
+            [[encoderTo5100Factory should] receive:@selector(encoderForEncryptionType:)
+                                     withArguments:theValue(AMAReporterDatabaseEncryptionTypeAES)];
             prepareDictionary();
             eventDictionary[kAMACommonTableFieldDataEncryptionType] = @(AMAReporterDatabaseEncryptionTypeAES);
             [migrationSerialzer eventForDictionary:eventDictionary error:nil];
@@ -707,17 +728,23 @@ describe(@"AMAEventSerializer", ^{
                 [[theValue(event.numberOfType) should] equal:theValue(number)];
             });
             context(@"Event source", ^{
-                it (@"Should have native source", ^{
+                it(@"Should have native source", ^{
                     eventData->has_source = true;
                     eventData->source = AMA__EVENT_DATA__EVENT_SOURCE__NATIVE;
                     fillEvent();
                     [[theValue(event.source) should] equal:theValue(AMAEventSourceNative)];
                 });
-                it (@"Should have JS source", ^{
+                it(@"Should have JS source", ^{
                     eventData->has_source = true;
                     eventData->source = AMA__EVENT_DATA__EVENT_SOURCE__JS;
                     fillEvent();
                     [[theValue(event.source) should] equal:theValue(AMAEventSourceJs)];
+                });
+                it(@"Should have SDK system source", ^{
+                    eventData->has_source = true;
+                    eventData->source = AMA__EVENT_DATA__EVENT_SOURCE__SDK_SYSTEM;
+                    fillEvent();
+                    [[theValue(event.source) should] equal:theValue(AMAEventSourceSDKSystem)];
                 });
             });
             context(@"First occurrence", ^{

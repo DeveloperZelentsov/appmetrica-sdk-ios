@@ -32,6 +32,9 @@
             }];
             [self migrateExtendedStartupParametersIfNeeded:database];
         }
+        else {
+            [AMAMigrationTo500Utils migrateDeviceIDFromDB:nil];
+        }
         
         [self migrateInstantIfNeeded:database];
         
@@ -59,7 +62,7 @@
     
     [database inDatabase:^(AMAFMDatabase *db) {
         [AMAMigrationTo500Utils migrateTable:kAMAKeyValueTableName
-                                 tableScheme:[AMATableDescriptionProvider binaryKVTableMetaInfo]
+                                 tableScheme:[AMATableDescriptionProvider stringKVTableMetaInfo]
                                     sourceDB:sourceDB
                                destinationDB:db];
         

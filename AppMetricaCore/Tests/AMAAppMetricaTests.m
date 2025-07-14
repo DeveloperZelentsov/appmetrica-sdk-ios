@@ -22,6 +22,8 @@
 #import "AMATimeoutRequestsController.h"
 #import "AMAIdentifierProviderMock.h"
 #import "AMAIdentifiersTestUtilities.h"
+#import "AMAAdResolver.h"
+#import "AMAAdRevenueSourceContainer.h"
 
 @interface AMAAppMetricaImpl () <AMAStartupControllerDelegate>
 
@@ -39,13 +41,23 @@ describe(@"AMAAppMetrica", ^{
     AMAAppStateManagerTestHelper *__block stateHelper = nil;
     AMAReporterTestHelper *__block reporterTestHelper = nil;
     AMAAppMetricaImpl *__block impl = nil;
-    AMAAdProvider *__block adProvider = nil;
     AMAIdentifierProviderMock *__block identifierManagerMock = nil;
+    AMAAdResolver *__block adResolver = nil;
     
     beforeEach(^{
+        adResolver = [AMAAdResolver nullMock];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
+        [AMAAppMetrica registerAdProvider:nil]; // reset adProvider
+#pragma clang diagnostic pop
+        [AMAAppMetrica stub:@selector(createAdResolverIfNeeded) andReturn:adResolver];
         [[AMAMetricaConfiguration sharedInstance] stub:@selector(identifierProvider) andReturn:identifierManagerMock];
         [AMATestNetwork stubHTTPRequestWithBlock:nil];
     });
+    afterEach(^{
+        [AMAAppMetrica clearStubs];
+    });
+    
     void (^stubMetricaDependencies)(void) = ^{
         [AMAMetricaConfigurationTestUtilities stubConfigurationWithAppVersion:stateHelper.appVersionName
                                                                   buildNumber:stateHelper.appBuildNumber];
@@ -53,8 +65,6 @@ describe(@"AMAAppMetrica", ^{
         [stateHelper stubApplicationState];
         identifierManagerMock = [AMAIdentifiersTestUtilities stubIdentifierProviderIfNeeded];
         [AMAFailureDispatcherTestHelper stubFailureDispatcher];
-        adProvider = [AMAAdProvider nullMock];
-        [AMAAdProvider stub:@selector(sharedInstance) andReturn:adProvider];
     };
     void (^stubMetrica)(void) = ^{
         stubMetricaDependencies();
@@ -93,6 +103,9 @@ describe(@"AMAAppMetrica", ^{
     };
     void (^activateAnonymously)(void) = ^{
         [AMAAppMetrica activate];
+    };
+    void (^activateAnonymouslyWithAdTrackingEnabled)(BOOL) = ^(BOOL trackingEnabled){
+        [AMAAppMetrica activateWithAdIdentifierTrackingEnabled:trackingEnabled];
     };
     void (^stubMetricaStarted)(BOOL) = ^(BOOL started) {
         [[AMAMetricaConfiguration sharedInstance].inMemory stub:@selector(appMetricaStarted)
@@ -604,6 +617,27 @@ describe(@"AMAAppMetrica", ^{
                 });
             });
         });
+        context(@"System SDK event", ^{
+            NSString *const eventName = @"eventName";
+            
+            beforeEach(^{
+                stubMetricaStarted(YES);
+            });
+            it(@"Should report event", ^{
+                [[impl should] receive:@selector(reportSystemEvent:onFailure:)
+                         withArguments:eventName, nil];
+                
+                [AMAAppMetrica reportSystemEvent:eventName onFailure:nil];
+            });
+            
+            it(@"Should not report event if metrica is not started", ^{
+                stubMetricaStarted(NO);
+                
+                [[impl shouldNot] receive:@selector(reportSystemEvent:onFailure:)];
+                
+                [AMAAppMetrica reportSystemEvent:eventName onFailure:nil];
+            });
+        });
         context(@"Profile event type", ^{
             AMAUserProfile *__block profile = nil;
             
@@ -683,15 +717,21 @@ describe(@"AMAAppMetrica", ^{
             });
             
             it(@"Should report event if metrica is started", ^{
-                [[impl should] receive:@selector(reportAdRevenue:onFailure:)
-                         withArguments:adRevenueInfo, nil];
+                [[impl should] receive:@selector(reportAdRevenue:isAutocollected:onFailure:)
+                         withArguments:adRevenueInfo, theValue(NO), nil];
                 
                 [AMAAppMetrica reportAdRevenue:adRevenueInfo onFailure:nil];
+            });
+            it(@"Should report event if metrica is started with autocollected", ^{
+                [[impl should] receive:@selector(reportAdRevenue:isAutocollected:onFailure:)
+                         withArguments:adRevenueInfo, theValue(YES), nil];
+                
+                [AMAAppMetrica reportAdRevenue:adRevenueInfo isAutocollected:YES onFailure:nil];
             });
             it(@"Should not report event if metrica is not started", ^{
                 stubMetricaStarted(NO);
                 
-                [[impl shouldNot] receive:@selector(reportAdRevenue:onFailure:)];
+                [[impl shouldNot] receive:@selector(reportAdRevenue:isAutocollected:onFailure:)];
                 
                 [AMAAppMetrica reportAdRevenue:adRevenueInfo onFailure:nil];
             });
@@ -1197,7 +1237,7 @@ describe(@"AMAAppMetrica", ^{
                 [[[AMAMetricaConfiguration sharedInstance].inMemory shouldNot] receive:@selector(markExternalServicesConfigured)];
                 [[impl shouldNot] receive:@selector(setExtendedStartupObservers:)];
                 [[impl shouldNot] receive:@selector(setExtendedReporterStorageControllers:)];
-                [[adProvider shouldNot] receive:@selector(setupAdProvider:)];
+                [[adResolver shouldNot] receive:@selector(setAdProvider:)];
                 
                 activate();
             });
@@ -1208,7 +1248,7 @@ describe(@"AMAAppMetrica", ^{
                 [[[AMAMetricaConfiguration sharedInstance].inMemory shouldNot] receive:@selector(markExternalServicesConfigured)];
                 [[impl shouldNot] receive:@selector(setExtendedStartupObservers:)];
                 [[impl shouldNot] receive:@selector(setExtendedReporterStorageControllers:)];
-                [[adProvider shouldNot] receive:@selector(setupAdProvider:)];
+                [[adResolver shouldNot] receive:@selector(setAdProvider:)];
                 
                 [AMAAppMetrica activateReporterWithConfiguration:[[AMAReporterConfiguration alloc] initWithAPIKey:apiKey]];
             });
@@ -1298,13 +1338,28 @@ describe(@"AMAAppMetrica", ^{
                     });
                 });
             });
-            it(@"Should register external AdController when activating main reporter", ^{
+            it(@"Should not register external AdController before activate", ^{
                 id adController = [KWMock nullMockForProtocol:@protocol(AMAAdProviding)];
 
+                [[adResolver shouldNot] receive:@selector(setAdProvider:) withArguments:adController];
                 [AMAAppMetrica registerAdProvider:adController];
+            });
+            it(@"Should register external AdController", ^{
+                id adController = [KWMock nullMockForProtocol:@protocol(AMAAdProviding)];
 
-                [[adProvider should] receive:@selector(setupAdProvider:) withArguments:adController];
+                [[adResolver should] receive:@selector(setAdProvider:) withArguments:adController];
+                [AMAAppMetrica registerAdProvider:adController];
+                
+                activate();
+            });
+            it(@"Should not register external AdController if setAdProviderEnabled called", ^{
+                id adController = [KWMock nullMockForProtocol:@protocol(AMAAdProviding)];
 
+                [[adResolver should] receive:@selector(setAdProvider:) withArguments:adController];
+                
+                [AMAAppMetrica setAdProviderEnabled:NO];
+                [AMAAppMetrica registerAdProvider:adController];
+                
                 activate();
             });
             it(@"Should register external AdController when activating secondary reporter", ^{
@@ -1312,7 +1367,7 @@ describe(@"AMAAppMetrica", ^{
 
                 [AMAAppMetrica registerAdProvider:adController];
 
-                [[adProvider should] receive:@selector(setupAdProvider:) withArguments:adController];
+                [[adResolver should] receive:@selector(setAdProvider:) withArguments:adController];
 
                 [AMAAppMetrica activateReporterWithConfiguration:[[AMAReporterConfiguration alloc] initWithAPIKey:apiKey]];
             });
@@ -1321,9 +1376,25 @@ describe(@"AMAAppMetrica", ^{
 
                 [AMAAppMetrica registerAdProvider:adController];
 
-                [[adProvider should] receive:@selector(setupAdProvider:) withArguments:adController];
+                [[adResolver should] receive:@selector(setAdProvider:) withArguments:adController];
 
                 activateAnonymously();
+            });
+            it(@"Should call setAdProviderEnabled in resolver", ^{
+                id adController = [KWMock nullMockForProtocol:@protocol(AMAAdProviding)];
+
+                [[adResolver should] receive:@selector(setEnabledAdProvider:) withArguments:theValue(NO)];
+                
+                [AMAAppMetrica setAdProviderEnabled:NO];
+                
+                activate();
+            });
+            it(@"Should call setEnabledForAnomimousActivation in resolver", ^{
+                id adController = [KWMock nullMockForProtocol:@protocol(AMAAdProviding)];
+
+                [[adResolver should] receive:@selector(setEnabledForAnonymousActivation:) withArguments:theValue(NO)];
+                
+                activateAnonymouslyWithAdTrackingEnabled(NO);
             });
             it(@"Should return yes if api key is valid", ^{
                 [AMAIdentifierValidator stub:@selector(isValidUUIDKey:) andReturn:theValue(YES)];
@@ -1371,6 +1442,43 @@ describe(@"AMAAppMetrica", ^{
             [[mockedImpl should] receive:@selector(clearSessionExtras)];
             
             [AMAAppMetrica clearSessionExtras];
+        });
+    });
+    
+    context(@"LibaryAdapter report", ^{
+        AMAAppMetricaImpl *__block mockedImpl = nil;
+        NSString *eventName = @"test_event_name";
+        NSDictionary *parameters = @{
+            @"key1": @"value1",
+        };
+        
+        afterEach(^{
+            [AMAAppMetrica clearStubs];
+        });
+        
+        it(@"reportLibraryAdapterAdRevenueRelatedEvent", ^{
+            mockedImpl = [AMAAppMetricaImpl nullMock];
+            stubMetrica();
+            [AMAAppMetrica stub:@selector(sharedImpl) andReturn:mockedImpl];
+            
+            [[mockedImpl should] receive:@selector(reportLibraryAdapterAdRevenueRelatedEvent:parameters:onFailure:)
+                           withArguments:eventName, parameters, kw_any()];
+            
+            stubMetricaStarted(YES);
+            [AMAAppMetrica reportLibraryAdapterAdRevenueRelatedEvent:eventName
+                                                          parameters:parameters
+                                                           onFailure:nil];
+        });
+        
+        it(@"registerAdRevenueNativeSource", ^{
+            NSString *nativeSource = @"native_source";
+            NSArray *expected = @[
+                @"yandex",
+                @"native_source",
+            ];
+            
+            [AMAAppMetrica registerAdRevenueNativeSource:nativeSource];
+            [[[AMAAdRevenueSourceContainer sharedInstance].nativeSupportedSources should] equal:expected];
         });
     });
 });
